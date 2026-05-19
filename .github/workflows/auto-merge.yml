@@ -23,4 +23,5 @@ jobs:
       - name: Enable auto-merge
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
+          token: ${{ secrets.AUTOMERGE_TOKEN || github.token }}
           pull-request-number: ${{ github.event.pull_request.number }}
