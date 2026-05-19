@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cdk-deploy-main
+  group: cdk-deploy-master
   cancel-in-progress: false
 
 env:
@@ -43,6 +43,9 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK Diff
+        run: npx cdk diff
 
       - name: CDK Deploy
         run: npx cdk deploy --require-approval never
