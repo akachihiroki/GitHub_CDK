@@ -1,41 +1,112 @@
-# Welcome to your CDK TypeScript project
+# CDK TypeScript プロジェクトへようこそ
 
-This is a blank project for CDK development with TypeScript.
+このリポジトリは、TypeScript で AWS CDK を開発するためのプロジェクトです。
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+`cdk.json` には、CDK Toolkit がアプリを実行する方法が定義されています。
 
-## Useful commands
+## よく使うコマンド
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+* `npm run build`   TypeScript を JavaScript にコンパイル
+* `npm run watch`   変更を監視して自動コンパイル
+* `npm run test`    Jest のユニットテストを実行
+* `npx cdk deploy`  デフォルトの AWS アカウント/リージョンにスタックをデプロイ
+* `npx cdk diff`    デプロイ済み状態との差分を確認
+* `npx cdk synth`   CloudFormation テンプレートを生成
 
 ## GitHub Actions CI/CD
 
-This repository includes two workflows:
+このリポジトリには、次の 2 つのワークフローが含まれています。
 
 * `.github/workflows/ci.yml`
-	* Trigger: pull request, push to `main`
-	* Runs: `npm ci` -> `npm run build` -> `npm run test` -> `npx cdk synth`
+	* トリガー: `master` 向けの Pull Request、`master` への push
+	* 実行内容: `npm ci` -> `npm run build` -> `npm run test` -> `npx cdk synth`
 
 * `.github/workflows/deploy.yml`
-	* Trigger: push to `main`, manual `workflow_dispatch`
-	* Uses GitHub OIDC to assume an AWS IAM Role and runs `npx cdk deploy --require-approval never`
+	* トリガー: `master` への push、手動実行 (`workflow_dispatch`)
+	* 実行内容: GitHub OIDC で AWS IAM ロールを引き受け、`npx cdk diff` -> `npx cdk deploy --require-approval never` を実行
 
-### Required GitHub settings
+### 必要な GitHub 設定
 
-Set the following in your GitHub repository settings:
+GitHub リポジトリの設定で、次の順に構成してください。
 
-* `Secrets`
-	* `AWS_ROLE_ARN`: IAM role ARN that GitHub Actions can assume
+#### 1. デフォルトブランチ確認
 
-* `Variables` (optional)
-	* `AWS_REGION`: target region (default is `ap-northeast-1`)
+本リポジトリのワークフローは `master` を対象にしています。
 
-For OIDC, make sure the IAM role trust policy allows your repository. Example:
+* `Settings` -> `Branches` -> `Default branch`
+	* `master` に設定する
+
+`main` をデフォルトブランチとして使う場合は、ワークフロー側の対象ブランチも `main` に合わせてください。
+
+#### 2. Ruleset（推奨: PR必須化）
+
+最新の GitHub では、Branch protection より Ruleset の利用が推奨です。
+
+* `Settings` -> `Rules` -> `Rulesets` -> `New ruleset` -> `New branch ruleset`
+	* Ruleset name: 例 `protect-master`
+	* Enforcement status: `Active`
+	* Target branches: `master`
+	* `Restrict updates` を有効化（直接 push を制限）
+	* `Require a pull request before merging` を有効化
+	* `Required approvals`: 1 以上
+	* `Require status checks to pass` を有効化
+	* Required checks に `CI / test-and-synth`（または `test-and-synth`）を追加
+	* `Require conversation resolution before merging` を有効化（推奨）
+	* `Block force pushes` を有効化
+	* `Block deletions` を有効化
+	* Bypass は最小限（原則なし）に設定
+
+この設定により、`master` への直接 push は基本的に禁止され、PR マージ経由のみ更新されます。
+
+#### 3. Branch protection（Rulesetを使わない場合のみ）
+
+Ruleset を使わない場合は、従来の Branch protection を設定してください。
+
+* `Settings` -> `Branches` -> `Add branch protection rule`
+	* `Branch name pattern`: `master`
+	* `Require a pull request before merging`: 有効化
+	* `Require approvals`: 1 以上
+	* `Require status checks to pass before merging`: 有効化
+	* 必須チェック: `CI / test-and-synth`（表示は環境で異なる）
+	* `Require conversation resolution before merging`: 有効化を推奨
+	* `Do not allow bypassing the above settings`: 有効化（推奨）
+
+PR がマージされると GitHub が `master` への push を作成し、その push をトリガーに deploy ワークフローが自動実行されます。
+
+#### 4. Actions の実行ポリシー
+
+* `Settings` -> `Actions` -> `General`
+	* `Actions permissions`: `Allow all actions and reusable workflows`（または社内ポリシーに応じた許可設定）
+	* `Workflow permissions`: `Read repository contents permission`
+	* `Allow GitHub Actions to create and approve pull requests`: 無効のままで可（本リポジトリ構成では不要）
+
+補足: 本リポジトリの workflow 側で OIDC を使うために `permissions: id-token: write` を設定済みです。これは OIDC トークン発行許可であり、リポジトリ書き込み権限ではありません。
+
+#### 5. Secrets / Variables
+
+* `Settings` -> `Secrets and variables` -> `Actions` -> `Secrets`
+	* `AWS_ROLE_ARN`: GitHub Actions が Assume する IAM ロール ARN
+
+* `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`（任意）
+	* `AWS_REGION`: デプロイ先リージョン（未設定時は `ap-northeast-1`）
+
+推奨: 環境ごとに分ける場合は、Repository secrets ではなく Environment secrets を使って権限分離してください。
+
+#### 6. （推奨）Environment 保護
+
+本番環境で安全性を高める場合は、`Environment` を作成して手動承認を入れる運用がおすすめです。
+
+* `Settings` -> `Environments` -> `New environment`
+	* 例: `production`
+	* `Required reviewers` を設定
+	* `Deployment branches and tags` で `master` のみに制限
+	* （必要に応じて）Environment secrets を使用
+
+Environment を OIDC 条件に含める場合、`sub` は次の形式になります。
+
+* `repo:<OWNER>/<REPO>:environment:<ENVIRONMENT_NAME>`
+
+OIDC を利用するため、IAM ロールの信頼ポリシーで対象リポジトリを許可してください。例:
 
 ```json
 {
@@ -60,10 +131,22 @@ For OIDC, make sure the IAM role trust policy allows your repository. Example:
 }
 ```
 
-### One-time preparation
+より厳密にする場合は、`StringLike` のワイルドカードを使わず、ブランチまたは environment を固定してください。
 
-Before using the deploy workflow, bootstrap CDK in the target account/region once:
+* ブランチ固定例: `repo:<OWNER>/<REPO>:ref:refs/heads/master`
+* Environment 固定例: `repo:<OWNER>/<REPO>:environment:production`
+
+#### 7. 動作確認チェックリスト
+
+* PR 作成時に `CI / test-and-synth` が成功する
+* CI 未成功の状態では `master` へマージできない
+* PR マージ後、`Deploy` workflow が自動起動する
+* `Deploy` 内で `cdk diff` の後に `cdk deploy` が実行される
+
+### 初回準備
+
+deploy ワークフローを使う前に、対象アカウント/リージョンで一度だけ CDK bootstrap を実行してください。
 
 * `npx cdk bootstrap aws://<ACCOUNT_ID>/<REGION>`
 
-After bootstrap and settings, merging into `main` will automatically deploy.
+bootstrap と各種設定が完了すると、`master` へのマージ後に `cdk diff` と `cdk deploy` が自動実行されます。
