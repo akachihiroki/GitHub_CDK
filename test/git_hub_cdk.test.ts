@@ -1,17 +1,31 @@
-// import * as cdk from 'aws-cdk-lib/core';
-// import { Template } from 'aws-cdk-lib/assertions';
-// import * as GitHubCdk from '../lib/git_hub_cdk-stack';
+import { App } from 'aws-cdk-lib';
+import { Template } from 'aws-cdk-lib/assertions';
+import { GitHubCdkStack } from '../lib/git_hub_cdk-stack';
 
-// example test. To run these tests, uncomment this file along with the
-// example resource in lib/git_hub_cdk-stack.ts
-test('SQS Queue Created', () => {
-//   const app = new cdk.App();
-//     // WHEN
-//   const stack = new GitHubCdk.GitHubCdkStack(app, 'MyTestStack');
-//     // THEN
-//   const template = Template.fromStack(stack);
+test('S3 Bucket Created', () => {
+	const app = new App();
+	const stack = new GitHubCdkStack(app, 'MyTestStack');
+	const template = Template.fromStack(stack);
 
-//   template.hasResourceProperties('AWS::SQS::Queue', {
-//     VisibilityTimeout: 300
-//   });
+	template.resourceCountIs('AWS::S3::Bucket', 1);
+	template.hasResourceProperties('AWS::S3::Bucket', {
+		VersioningConfiguration: {
+			Status: 'Enabled',
+		},
+		BucketEncryption: {
+			ServerSideEncryptionConfiguration: [
+				{
+					ServerSideEncryptionByDefault: {
+						SSEAlgorithm: 'AES256',
+					},
+				},
+			],
+		},
+		PublicAccessBlockConfiguration: {
+			BlockPublicAcls: true,
+			BlockPublicPolicy: true,
+			IgnorePublicAcls: true,
+			RestrictPublicBuckets: true,
+		},
+	});
 });
